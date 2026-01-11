@@ -1,17 +1,16 @@
-import nest_asyncio
-nest_asyncio.apply()
-
 import streamlit as st
 import zipfile
 import tempfile
 from pathlib import Path
-import pyvista as pv
+import numpy as np
+import trimesh
+import plotly.graph_objects as go
 
 from pipeline import run_pipeline
 
 
 # -----------------------------
-# Streamlit page config
+# Streamlit config
 # -----------------------------
 st.set_page_config(
     page_title="3D Cerebral Artery Reconstruction",
@@ -22,24 +21,45 @@ st.title("3D Cerebral Artery Reconstruction from TOF-MRA")
 
 
 # -----------------------------
-# Helper: Render PyVista in Streamlit
+# Helper: Plotly STL viewer
 # -----------------------------
-def show_pyvista(plotter: pv.Plotter, html_path: Path):
-    """
-    Export PyVista scene to HTML and embed in Streamlit
-    """
-    plotter.export_html(str(html_path))
+def plot_stl_plotly(stl_path: Path):
+    mesh = trimesh.load_mesh(stl_path)
 
-    with open(html_path, "r", encoding="utf-8") as f:
-        st.components.v1.html(
-            f.read(),
-            height=650,
-            scrolling=True
-        )
+    vertices = np.array(mesh.vertices)
+    faces = np.array(mesh.faces)
+
+    fig = go.Figure(
+        data=[
+            go.Mesh3d(
+                x=vertices[:, 0],
+                y=vertices[:, 1],
+                z=vertices[:, 2],
+                i=faces[:, 0],
+                j=faces[:, 1],
+                k=faces[:, 2],
+                color="lightgray",
+                opacity=1.0
+            )
+        ]
+    )
+
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            zaxis=dict(visible=False),
+            aspectmode="data",
+        ),
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=650,
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
 
 # -----------------------------
-# File uploader
+# Upload ZIP
 # -----------------------------
 uploaded_zip = st.file_uploader(
     "Upload ZIP file containing TOF-MRA DICOM (.dcm) files",
@@ -48,67 +68,45 @@ uploaded_zip = st.file_uploader(
 
 
 # -----------------------------
-# Main pipeline execution
+# Run pipeline
 # -----------------------------
 if uploaded_zip is not None:
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp = Path(tmp_dir)
 
-        # Where ZIP will be extracted
-        raw_dicom_dir = tmp / "00_raw_dicom"
-        raw_dicom_dir.mkdir(parents=True, exist_ok=True)
+        raw_dir = tmp / "00_raw_dicom"
+        raw_dir.mkdir(parents=True, exist_ok=True)
 
         # Extract ZIP
-        try:
-            with zipfile.ZipFile(uploaded_zip, "r") as z:
-                z.extractall(raw_dicom_dir)
-            st.success("DICOM files extracted")
-        except Exception as e:
-            st.error("Failed to extract ZIP file")
-            st.exception(e)
-            st.stop()
+        with zipfile.ZipFile(uploaded_zip, "r") as z:
+            z.extractall(raw_dir)
 
-        # Run pipeline
-        with st.spinner("Running full artery reconstruction pipeline..."):
+        st.success("DICOM files extracted")
+
+        # Run reconstruction
+        with st.spinner("Running artery reconstruction pipeline..."):
             try:
                 stl_path = run_pipeline(tmp)
             except Exception as e:
-                st.error("Pipeline execution failed")
+                st.error("Pipeline failed")
                 st.exception(e)
                 st.stop()
 
         st.success("3D artery reconstruction complete")
 
         # -----------------------------
-        # Load and visualize STL
+        # Plot STL (Cloud-safe)
         # -----------------------------
-        try:
-            mesh = pv.read(str(stl_path))
-        except Exception as e:
-            st.error("Failed to load generated STL file")
-            st.exception(e)
-            st.stop()
-
-        plotter = pv.Plotter(off_screen=True)
-        plotter.set_background("black")
-        plotter.add_mesh(
-            mesh,
-            color="white",
-            smooth_shading=True
-        )
-        plotter.add_axes()
-
-        html_file = tmp / "arteries.html"
-        show_pyvista(plotter, html_file)
+        plot_stl_plotly(stl_path)
 
         # -----------------------------
         # Download STL
         # -----------------------------
         with open(stl_path, "rb") as f:
             st.download_button(
-                label="Download 3D Artery STL",
-                data=f,
+                "Download 3D Artery STL",
+                f,
                 file_name="cerebral_arteries.stl",
                 mime="application/octet-stream"
             )
