@@ -1,0 +1,8 @@
+streamlit
+numpy
+scipy
+scikit-image
+nibabel
+pydicom
+pyvista
+trimesh
