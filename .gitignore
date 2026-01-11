@@ -1,0 +1,48 @@
+# ===============================
+# Medical imaging data (CRITICAL)
+# ===============================
+*.dcm
+*.nii
+*.nii.gz
+*.stl
+*.vtk
+*.zip
+
+# Runtime-generated folders
+00_raw_dicom/
+01_nifti/
+02_vesselness/
+03_masks/
+04_mesh/
+output_vessels/
+
+# ===============================
+# Python
+# ===============================
+__pycache__/
+*.pyc
+*.pyo
+
+# ===============================
+# Jupyter / temp
+# ===============================
+.ipynb_checkpoints/
+*.ipynb
+
+# ===============================
+# OS / editor
+# ===============================
+.DS_Store
+Thumbs.db
+
+# ===============================
+# Virtual environments
+# ===============================
+.env
+.venv
+conda/
+
+# ===============================
+# Word temp files (important)
+# ===============================
+~$*.docx

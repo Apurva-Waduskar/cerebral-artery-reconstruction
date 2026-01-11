@@ -1,4 +1,5 @@
 streamlit
+nest_asyncio
 numpy
 scipy
 scikit-image
@@ -6,3 +7,4 @@ nibabel
 pydicom
 pyvista
 trimesh
+vtk
